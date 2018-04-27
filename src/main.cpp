@@ -29,9 +29,6 @@ struct blobwatch* bw;
 
 #define min(a,b) ((a) < (b) ? (a) : (b))
 
-ros::Publisher  occulus_pc_pub;
-sensor_msgs::PointCloud pointCloudData;
-
 void cb(struct uvc_stream *stream)
 {
 	int width = stream->width;
@@ -67,19 +64,13 @@ void cb(struct uvc_stream *stream)
 		if (data->bwobs->num_blobs > 0)
 		{
 			printf("Blobs: %d\n", data->bwobs->num_blobs);
-                        pointCloudData.header.frame_id = "world";
-	 		pointCloudData.points.resize(data->bwobs->num_blobs);
-
 			for (int index = 0; index < data->bwobs->num_blobs; index++)
 			{
 				printf("Blob[%d]: %d,%d\n",
 					index,
 					data->bwobs->blobs[index].x,
 					data->bwobs->blobs[index].y);
-					pointCloudData.points[index].x = data->bwobs->blobs[index].x;
-					pointCloudData.points[index].y = data->bwobs->blobs[index].y; 
 			}
-			occulus_pc_pub.publish(pointCloudData);
 		}
 	}
 
@@ -91,6 +82,8 @@ int main(int argc, char** argv)
 {
     ros::init(argc, argv, "occulus_touch_node");
     ros::NodeHandle node;
+    ros::Publisher  occulus_pc_pub;
+    sensor_msgs::PointCloud pointCloudData;
     occulus_pc_pub = node.advertise<sensor_msgs::PointCloud>("/occulus/touch", 10);
     libusb_context *ctx;
     libusb_device_handle *usb_devh;
@@ -159,13 +152,18 @@ int main(int argc, char** argv)
 
         if (data.bwobs)
         {
+            pointCloudData.header.frame_id = "world";
+            pointCloudData.points.resize(data.bwobs->num_blobs);
             for (int index = 0; index < data.bwobs->num_blobs; index++)
             {
                 struct blob* blob = &data.bwobs->blobs[index];
                 SDL_Rect rect = {blob->x - 10, blob->y - 10, 20, 20};
                 SDL_SetRenderDrawColor(renderer, 255, 0, 0, 128);
                 SDL_RenderDrawRect(renderer, &rect);
+                pointCloudData.points[index].x = data.bwobs->blobs[index].x/1000.0;
+                pointCloudData.points[index].y = data.bwobs->blobs[index].y/1000.0;
             }
+            occulus_pc_pub.publish(pointCloudData);
         }
 
         SDL_DestroyTexture(tex);
